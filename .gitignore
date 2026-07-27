@@ -8,3 +8,4 @@ dist/
 dist-api/
 .vercel
 .mcp-token.local
+.owner-password.local

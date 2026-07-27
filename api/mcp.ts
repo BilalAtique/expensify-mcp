@@ -3,7 +3,49 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 import { authorizeRequest } from '../src/lib/auth.js';
 import { ConfigError, loadConfig } from '../src/lib/config.js';
+import { baseUrlFrom, canonicalResource } from '../src/lib/oauth-config.js';
+import { verifyToken } from '../src/lib/oauth-store.js';
 import { createServer } from '../src/server.js';
+
+/**
+ * Two ways in:
+ *   1. An OAuth access token this server issued (claude.ai custom connectors).
+ *   2. A static MCP_AUTH_TOKEN bearer (Claude Code, curl, scripts).
+ *
+ * Either alone is sufficient. OAuth is tried first because a connector always
+ * presents one, and a static-token deployment simply has no signing secret.
+ */
+function checkAuth(
+  req: IncomingMessage,
+): { ok: true } | { ok: false; status: number; message: string } {
+  const header = req.headers.authorization;
+  const signingSecret = process.env.MCP_OAUTH_SIGNING_SECRET?.trim();
+  const staticToken = process.env.MCP_AUTH_TOKEN?.trim();
+
+  const presented = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+
+  if (presented && signingSecret) {
+    const result = verifyToken(presented, signingSecret, {
+      typ: 'access',
+      aud: canonicalResource(req),
+    });
+    if (result.valid) return { ok: true };
+  }
+
+  if (staticToken) return authorizeRequest(header, staticToken);
+
+  if (!signingSecret) {
+    return {
+      ok: false,
+      status: 503,
+      message:
+        'Server is not configured: set MCP_OAUTH_SIGNING_SECRET (for OAuth) ' +
+        'or MCP_AUTH_TOKEN (for static bearer auth).',
+    };
+  }
+
+  return { ok: false, status: 401, message: 'Invalid or expired access token.' };
+}
 
 /**
  * Streamable HTTP MCP endpoint.
@@ -16,15 +58,17 @@ export default async function handler(
   req: IncomingMessage & { body?: unknown },
   res: ServerResponse,
 ): Promise<void> {
-  const auth = authorizeRequest(
-    req.headers.authorization,
-    process.env.MCP_AUTH_TOKEN,
-  );
+  const auth = checkAuth(req);
 
   if (auth.ok === false) {
-    // WWW-Authenticate tells a compliant client how to authenticate.
+    // RFC 9728: point the client at the protected-resource metadata so it can
+    // discover the authorization server and start an OAuth flow on its own.
     if (auth.status === 401) {
-      res.setHeader('WWW-Authenticate', 'Bearer realm="expensify-mcp"');
+      const metadataUrl = `${baseUrlFrom(req)}/.well-known/oauth-protected-resource`;
+      res.setHeader(
+        'WWW-Authenticate',
+        `Bearer realm="expensify-mcp", resource_metadata="${metadataUrl}"`,
+      );
     }
     res.statusCode = auth.status;
     res.setHeader('Content-Type', 'application/json');
