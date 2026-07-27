@@ -1,0 +1,29 @@
+{
+  "name": "expensify-mcp",
+  "version": "0.1.0",
+  "description": "Full-capability MCP server for Expensify via the Integration Server API",
+  "type": "module",
+  "bin": {
+    "expensify-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun run src/index.ts",
+    "type-check": "tsc --noEmit",
+    "test": "bun test",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@vercel/node": "^5.8.27",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
