@@ -32,7 +32,12 @@ export const exportReports = defineTool({
     'filename to expensify_download_file to get the contents. Supply a ' +
     'freemarker template to control the columns, or omit it for a default ' +
     'CSV of reportID, name, status, date, merchant, amount, currency, ' +
-    'category and tag.',
+    'category and tag.\n\n' +
+    'NOTE: report export requires a sufficient Expensify plan. On accounts ' +
+    'without it this returns a deterministic 500 — not a transient outage. ' +
+    'If that happens, do not retry; tell the user export is unavailable on ' +
+    'their account and suggest the Expensify web UI. There is no other API ' +
+    'to enumerate reports.',
   mutating: false,
   inputSchema: {
     reportIDList: z

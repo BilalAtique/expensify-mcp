@@ -13,24 +13,59 @@ import type { ToolDeps } from './tools/types.js';
 export const SERVER_NAME = 'expensify-mcp';
 export const SERVER_VERSION = '0.1.0';
 
+/**
+ * Error hints are written for the model that will read them. Where an error is
+ * known NOT to be transient, they say so explicitly — otherwise the model
+ * reads a bare 500 as an outage and offers to retry forever.
+ */
+function hintFor(error: ExpensifyApiError): string {
+  switch (error.responseCode) {
+    case 410:
+      return (
+        '\nHint: 410 is a validation failure. Check dates are yyyy-MM-dd, ' +
+        'amounts are integer cents, and any category/tag already exists on ' +
+        'the policy.'
+      );
+    case 429:
+      return (
+        '\nHint: rate limited (5 req/10s, 20 req/60s). Retries were already ' +
+        'exhausted; wait before trying again.'
+      );
+    case 403:
+      return (
+        '\nHint: 403 here means the account lacks the plan or verified domain ' +
+        'this job requires — not a malformed payload. DO NOT RETRY; the result ' +
+        'will be identical. Report this to the user as an account limitation.'
+      );
+    case 500:
+      if (error.jobKind === 'file' || error.jobKind === 'reconciliation') {
+        return (
+          '\nHint: export jobs return 500 for accounts without the required ' +
+          'plan. This has been verified as DETERMINISTIC, not a transient ' +
+          'outage: it reproduces even with a literal template that never ' +
+          'touches report data, while other endpoints on the same credentials ' +
+          'succeed.\n' +
+          'DO NOT RETRY and DO NOT describe this as temporary. Tell the user ' +
+          'that report export appears unavailable on this Expensify account ' +
+          '(likely a plan restriction) and that the web UI is the way to view ' +
+          'reports.'
+        );
+      }
+      return (
+        '\nHint: 500 is a server-side failure at Expensify. If it repeats ' +
+        'identically, treat it as deterministic rather than transient.'
+      );
+    default:
+      return '';
+  }
+}
+
 export function formatError(error: unknown): string {
   if (error instanceof WriteGuardError) {
     return `Blocked before sending (${error.reason}): ${error.message}`;
   }
   if (error instanceof ExpensifyApiError) {
-    const hint =
-      error.responseCode === 410
-        ? '\nHint: 410 means validation failed. Check that dates are yyyy-MM-dd, ' +
-          'amounts are integer cents, and that any category/tag already exists ' +
-          'on the policy.'
-        : error.responseCode === 429
-          ? '\nHint: rate limited (5 req/10s, 20 req/60s). Retries were ' +
-            'exhausted; wait and try again.'
-          : error.responseCode === 403
-            ? '\nHint: 403 usually means the account lacks the plan or verified ' +
-              'domain this job requires, rather than a malformed payload.'
-            : '';
-    return `${error.message}${hint}`;
+    return `${error.message}${hintFor(error)}`;
   }
   if (error instanceof ExpensifyTransportError) {
     return `${error.message}${error.body ? `\nBody: ${error.body}` : ''}`;

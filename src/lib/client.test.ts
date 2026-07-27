@@ -210,3 +210,21 @@ describe('ExpensifyClient transport', () => {
     expect(JSON.stringify(redacted)).not.toContain('psecret');
   });
 });
+
+describe('error hints', () => {
+  test('export 500 carries the job kind so the hint can be specific', async () => {
+    const client = clientWith(
+      () =>
+        new Response(
+          JSON.stringify({ responseCode: 500, responseMessage: 'Server error' }),
+        ),
+    );
+
+    const error = await client
+      .execute({ type: 'file', inputSettings: {}, template: 'x' })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ExpensifyApiError);
+    expect((error as ExpensifyApiError).jobKind).toBe('file');
+  });
+});

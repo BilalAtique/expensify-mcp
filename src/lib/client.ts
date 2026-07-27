@@ -173,6 +173,7 @@ export class ExpensifyClient {
             ? parsed.responseMessage
             : 'Unknown error',
           parsed,
+          request.type,
         );
       }
 

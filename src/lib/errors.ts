@@ -7,13 +7,21 @@ export class ExpensifyApiError extends Error {
   readonly responseCode: number;
   readonly responseMessage: string;
   readonly raw: unknown;
+  /** Which job produced this, so the hint can be specific. */
+  readonly jobKind: string | undefined;
 
-  constructor(responseCode: number, responseMessage: string, raw: unknown) {
+  constructor(
+    responseCode: number,
+    responseMessage: string,
+    raw: unknown,
+    jobKind?: string,
+  ) {
     super(`Expensify API error ${responseCode}: ${responseMessage}`);
     this.name = 'ExpensifyApiError';
     this.responseCode = responseCode;
     this.responseMessage = responseMessage;
     this.raw = raw;
+    this.jobKind = jobKind;
     Object.setPrototypeOf(this, ExpensifyApiError.prototype);
   }
 }
