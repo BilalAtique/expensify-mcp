@@ -129,25 +129,31 @@ Verified against the real API on 2026-07-27 using a throwaway workspace.
 | `update_policy_tags` | verified — see the data-loss warning below |
 | `update_tag_approvers` | verified |
 | `create_expense_rule` | verified — duplicate correctly rejected on re-run |
+| `export_reports` | verified — exported 18 real reports |
+| `download_file` | verified — retrieved the exported CSV |
 | `update_employees` / `remove_employees` | **untested** — account returns 403 |
-| `export_reports` / `export_card_reconciliation` / `download_file` | **untested** — account returns 500 |
+| `export_card_reconciliation` | **untested** — needs a card domain |
 | `mark_reports_reimbursed` | **untested** — needs an Approved report, unreachable via API |
 | `get_domain_cards` | **untested** — needs a verified domain |
 
-Two bugs were found and fixed only because writes were read back rather than
-trusted:
+Four bugs were found and fixed, every one of them a payload-placement mistake
+that this API reports opaquely:
 
 1. **Categories and tags belong at the top level** of the job description, not
    inside `inputSettings`. Nested, the API returns `200` and silently discards
-   the change. Regression-tested.
+   the change.
 2. **The employee updater** needs `dataSource: "request"`, `entity: "generic"`,
    and the roster in a separate `data` form field.
+3. **Export jobs need `onReceive.immediateResponse`**, and `fileExtension` goes
+   in `outputSettings`, not `inputSettings`. Without it the request blocks and
+   then fails with a bare `500` that looks like an outage.
+4. **The download job takes `fileName` / `fileSystem` at the top level** and no
+   `inputSettings` at all.
 
-The three untested groups fail with account-level errors (403/500) rather than
-validation errors, which points at plan/entitlement limits on a fresh personal
-account rather than payload bugs — but that is inference, not proof. Re-run
-`scripts/live-probe.mjs --writes` on a Control-plan account with a verified
-domain to close them out.
+All four are regression-tested. The lesson generalises: when this API returns a
+`500`, or a `200` that changes nothing, suspect payload placement before
+concluding the endpoint is broken or the account is limited. Comparing against
+a raw `curl` built straight from the docs is the fastest way to tell.
 
 ## Data-loss warning: tag merges
 

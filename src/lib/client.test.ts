@@ -228,3 +228,51 @@ describe('error hints', () => {
     expect((error as ExpensifyApiError).jobKind).toBe('file');
   });
 });
+
+describe('export job wire format', () => {
+  test('omits inputSettings entirely when empty', async () => {
+    // The download job takes no inputSettings; an empty object is rejected.
+    const captured: { body?: string } = {};
+    const client = clientWith(
+      () => new Response(JSON.stringify({ responseCode: 200 })),
+      captured,
+    );
+
+    await client.execute({
+      type: 'download',
+      inputSettings: {},
+      topLevel: { fileName: 'f.csv', fileSystem: 'integrationServer' },
+    });
+
+    const params = new URLSearchParams(captured.body ?? '');
+    const job = JSON.parse(params.get('requestJobDescription') ?? '{}');
+
+    expect(job.inputSettings).toBeUndefined();
+    expect(job.fileName).toBe('f.csv');
+    expect(job.fileSystem).toBe('integrationServer');
+  });
+
+  test('sends onReceive and outputSettings at the top level', async () => {
+    // Without onReceive.immediateResponse the export blocks then 500s.
+    const captured: { body?: string } = {};
+    const client = clientWith(
+      () => new Response('export-abc.csv'),
+      captured,
+    );
+
+    await client.execute({
+      type: 'file',
+      template: 'x',
+      inputSettings: { type: 'combinedReportData' },
+      onReceive: { immediateResponse: ['returnRandomFileName'] },
+      outputSettings: { fileExtension: 'csv' },
+    });
+
+    const params = new URLSearchParams(captured.body ?? '');
+    const job = JSON.parse(params.get('requestJobDescription') ?? '{}');
+
+    expect(job.onReceive.immediateResponse).toEqual(['returnRandomFileName']);
+    expect(job.outputSettings.fileExtension).toBe('csv');
+    expect(job.inputSettings.fileExtension).toBeUndefined();
+  });
+});

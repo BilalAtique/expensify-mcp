@@ -33,11 +33,8 @@ export const exportReports = defineTool({
     'freemarker template to control the columns, or omit it for a default ' +
     'CSV of reportID, name, status, date, merchant, amount, currency, ' +
     'category and tag.\n\n' +
-    'NOTE: report export requires a sufficient Expensify plan. On accounts ' +
-    'without it this returns a deterministic 500 — not a transient outage. ' +
-    'If that happens, do not retry; tell the user export is unavailable on ' +
-    'their account and suggest the Expensify web UI. There is no other API ' +
-    'to enumerate reports.',
+    'This is the only API that enumerates reports — there is no list-reports ' +
+    'job. Use it to count or inspect reports.',
   mutating: false,
   inputSchema: {
     reportIDList: z
@@ -83,7 +80,6 @@ export const exportReports = defineTool({
     const inputSettings: Record<string, unknown> = {
       type: 'combinedReportData',
       filters,
-      fileExtension: args.outputFormat ?? 'csv',
     };
     if (args.state?.length) inputSettings.reportState = args.state.join(',');
 
@@ -91,6 +87,8 @@ export const exportReports = defineTool({
       type: 'file',
       template: args.template ?? DEFAULT_TEMPLATE,
       inputSettings,
+      onReceive: { immediateResponse: ['returnRandomFileName'] },
+      outputSettings: { fileExtension: args.outputFormat ?? 'csv' },
     });
   },
 });
@@ -119,7 +117,6 @@ export const exportReconciliation = defineTool({
       domainName: args.domainName,
       startDate: args.startDate,
       endDate: args.endDate,
-      fileExtension: args.outputFormat ?? 'csv',
     };
     if (args.feedName) inputSettings.feedName = args.feedName;
 
@@ -127,6 +124,8 @@ export const exportReconciliation = defineTool({
       type: 'reconciliation',
       template: args.template ?? DEFAULT_TEMPLATE,
       inputSettings,
+      onReceive: { immediateResponse: ['returnRandomFileName'] },
+      outputSettings: { fileExtension: args.outputFormat ?? 'csv' },
     });
   },
 });
@@ -151,8 +150,9 @@ export const downloadFile = defineTool({
   handler: async (args, { client }) =>
     client.execute({
       type: 'download',
-      inputSettings: {
-        type: 'file',
+      // fileName/fileSystem are top-level on this job, not in inputSettings.
+      inputSettings: {},
+      topLevel: {
         fileName: args.fileName,
         fileSystem: args.fileSystem ?? 'integrationServer',
       },

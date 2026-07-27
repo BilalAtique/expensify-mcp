@@ -40,15 +40,9 @@ function hintFor(error: ExpensifyApiError): string {
     case 500:
       if (error.jobKind === 'file' || error.jobKind === 'reconciliation') {
         return (
-          '\nHint: export jobs return 500 for accounts without the required ' +
-          'plan. This has been verified as DETERMINISTIC, not a transient ' +
-          'outage: it reproduces even with a literal template that never ' +
-          'touches report data, while other endpoints on the same credentials ' +
-          'succeed.\n' +
-          'DO NOT RETRY and DO NOT describe this as temporary. Tell the user ' +
-          'that report export appears unavailable on this Expensify account ' +
-          '(likely a plan restriction) and that the web UI is the way to view ' +
-          'reports.'
+          '\nHint: export jobs 500 when onReceive.immediateResponse is missing ' +
+          'from the job description. That is a client bug rather than an ' +
+          'Expensify outage, so retrying an identical request will not help.'
         );
       }
       return (

@@ -29,6 +29,14 @@ export interface JobRequest {
    * silently does nothing.
    */
   topLevel?: Record<string, unknown>;
+  /**
+   * Export jobs must declare how to respond. Without
+   * onReceive.immediateResponse the request blocks and then fails with a
+   * bare 500 — verified against the live API.
+   */
+  onReceive?: Record<string, unknown>;
+  /** Export jobs take fileExtension here, not in inputSettings. */
+  outputSettings?: Record<string, unknown>;
 }
 
 export interface ExpensifyResponse {
@@ -73,7 +81,15 @@ export class ExpensifyClient {
         partnerUserID: this.config.partnerUserID,
         partnerUserSecret: this.config.partnerUserSecret,
       },
-      inputSettings: request.inputSettings,
+      // The download job takes no inputSettings; sending an empty object is
+      // rejected, so it is omitted entirely when there is nothing to send.
+      ...(Object.keys(request.inputSettings).length > 0
+        ? { inputSettings: request.inputSettings }
+        : {}),
+      ...(request.onReceive ? { onReceive: request.onReceive } : {}),
+      ...(request.outputSettings
+        ? { outputSettings: request.outputSettings }
+        : {}),
       ...(request.topLevel ?? {}),
     };
     if (request.dataSource !== undefined) job.dataSource = request.dataSource;
@@ -91,7 +107,15 @@ export class ExpensifyClient {
         partnerUserID: this.config.partnerUserID,
         partnerUserSecret: '***redacted***',
       },
-      inputSettings: request.inputSettings,
+      // The download job takes no inputSettings; sending an empty object is
+      // rejected, so it is omitted entirely when there is nothing to send.
+      ...(Object.keys(request.inputSettings).length > 0
+        ? { inputSettings: request.inputSettings }
+        : {}),
+      ...(request.onReceive ? { onReceive: request.onReceive } : {}),
+      ...(request.outputSettings
+        ? { outputSettings: request.outputSettings }
+        : {}),
       ...(request.topLevel ?? {}),
     };
     if (request.dataSource !== undefined) job.dataSource = request.dataSource;
