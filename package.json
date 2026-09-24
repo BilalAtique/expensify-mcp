@@ -1,6 +1,7 @@
 {
   "name": "expensify-mcp",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Full-capability MCP server for Expensify via the Integration Server API",
   "type": "module",
   "bin": {

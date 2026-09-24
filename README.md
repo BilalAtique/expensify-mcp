@@ -204,3 +204,7 @@ src/
     write-expenses.ts # expenses, reports, reimbursement status
     write-policy.ts   # policies, categories, tags, members, rules
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
